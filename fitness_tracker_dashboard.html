@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>My Fitness Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f2f2f2;
+      padding: 20px;
+      max-width: 800px;
+      margin: auto;
+    }
+    h1, h2 {
+      text-align: center;
+    }
+    input, button, textarea {
+      padding: 10px;
+      margin: 5px 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .entry, .summary, .bmi-section {
+      background: white;
+      padding: 15px;
+      margin-top: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    canvas {
+      margin-top: 20px;
+    }
+    .dark-mode {
+      background: #121212;
+      color: #fff;
+    }
+    .dark-mode input, .dark-mode button, .dark-mode textarea {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+    }
+  </style>
+</head>
+<body>
+
+<h1>My Fitness Journey</h1>
+<button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+<button onclick="exportToCSV()">Export to CSV</button>
+
+<div class="entry">
+  <label for="date">Date:</label>
+  <input type="date" id="date" required>
+
+  <label>Running (km):</label>
+  <input type="number" id="run">
+
+  <label>Cycling (km):</label>
+  <input type="number" id="cycle">
+
+  <label>Swimming (meters):</label>
+  <input type="number" id="swim">
+
+  <label>Calories Intake:</label>
+  <input type="number" id="calIntake">
+
+  <label>Calories Burned:</label>
+  <input type="number" id="calBurned">
+
+  <label>Workout Notes:</label>
+  <textarea id="notes" rows="3" placeholder="Describe your workout..."></textarea>
+
+  <button onclick="addEntry()">Add Entry</button>
+</div>
+
+<div class="bmi-section">
+  <h2>BMI Calculator</h2>
+  <input type="number" id="height" placeholder="Height in cm">
+  <input type="number" id="weight" placeholder="Weight in kg">
+  <button onclick="calculateBMI()">Calculate BMI</button>
+  <p id="bmiResult"></p>
+</div>
+
+<div class="summary" id="summary">
+  <h2>Overall Stats</h2>
+  <p id="totals"></p>
+  <p id="averages"></p>
+</div>
+
+<canvas id="distanceChart" height="120"></canvas>
+<canvas id="calorieChart" height="100"></canvas>
+
+<script>
+  document.getElementById('date').valueAsDate = new Date();
+  let fitnessData = JSON.parse(localStorage.getItem('fitnessDataByDate')) || {};
+
+  function addEntry() {
+    const date = document.getElementById('date').value;
+    const run = parseFloat(document.getElementById('run').value) || 0;
+    const cycle = parseFloat(document.getElementById('cycle').value) || 0;
+    const swim = parseFloat(document.getElementById('swim').value) || 0;
+    const calIntake = parseFloat(document.getElementById('calIntake').value) || 0;
+    const calBurned = parseFloat(document.getElementById('calBurned').value) || 0;
+    const notes = document.getElementById('notes').value || "";
+
+    fitnessData[date] = { run, cycle, swim, calIntake, calBurned, notes };
+    localStorage.setItem('fitnessDataByDate', JSON.stringify(fitnessData));
+
+    updateSummary();
+    updateCharts();
+
+    ['run','cycle','swim','calIntake','calBurned','notes'].forEach(id => document.getElementById(id).value = '');
+  }
+
+  function updateSummary() {
+    let totalRun = 0, totalCycle = 0, totalSwim = 0;
+    let totalIntake = 0, totalBurned = 0;
+    const dates = Object.keys(fitnessData);
+    const count = dates.length;
+
+    dates.forEach(date => {
+      const e = fitnessData[date];
+      totalRun += e.run;
+      totalCycle += e.cycle;
+      totalSwim += e.swim;
+      totalIntake += e.calIntake;
+      totalBurned += e.calBurned;
+    });
+
+    document.getElementById('totals').innerText =
+      `Total Running: ${totalRun} km | Cycling: ${totalCycle} km | Swimming: ${totalSwim} m`;
+
+    document.getElementById('averages').innerText =
+      `Avg Calories Intake: ${(totalIntake/count).toFixed(2)} | Burned: ${(totalBurned/count).toFixed(2)}`;
+  }
+
+  function updateCharts() {
+    const labels = Object.keys(fitnessData).sort();
+    const runData = labels.map(d => fitnessData[d].run);
+    const cycleData = labels.map(d => fitnessData[d].cycle);
+    const swimData = labels.map(d => fitnessData[d].swim);
+    const intakeData = labels.map(d => fitnessData[d].calIntake);
+    const burnedData = labels.map(d => fitnessData[d].calBurned);
+
+    if (window.distanceChart) window.distanceChart.destroy();
+    if (window.calorieChart) window.calorieChart.destroy();
+
+    window.distanceChart = new Chart(document.getElementById('distanceChart').getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Running (km)', data: runData, borderColor: 'green', fill: false },
+          { label: 'Cycling (km)', data: cycleData, borderColor: 'blue', fill: false },
+          { label: 'Swimming (m)', data: swimData, borderColor: 'purple', fill: false }
+        ]
+      },
+      options: { plugins: { title: { display: true, text: 'Distance Over Time' } } }
+    });
+
+    window.calorieChart = new Chart(document.getElementById('calorieChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: 'Calories Intake', data: intakeData, backgroundColor: 'orange' },
+          { label: 'Calories Burned', data: burnedData, backgroundColor: 'red' }
+        ]
+      },
+      options: { plugins: { title: { display: true, text: 'Calories Comparison' } } }
+    });
+  }
+
+  function calculateBMI() {
+    const h = parseFloat(document.getElementById('height').value);
+    const w = parseFloat(document.getElementById('weight').value);
+    if (!h || !w) return;
+    const bmi = w / Math.pow(h / 100, 2);
+    let category = '';
+    if (bmi < 18.5) category = 'Underweight';
+    else if (bmi < 24.9) category = 'Normal';
+    else if (bmi < 29.9) category = 'Overweight';
+    else category = 'Obese';
+    document.getElementById('bmiResult').innerText = `BMI: ${bmi.toFixed(2)} (${category})`;
+  }
+
+  function exportToCSV() {
+    const rows = [['Date','Run','Cycle','Swim','CalIntake','CalBurned','Notes']];
+    Object.entries(fitnessData).forEach(([date, d]) => {
+      rows.push([date, d.run, d.cycle, d.swim, d.calIntake, d.calBurned, d.notes.replace(/\n/g, ' ')]);
+    });
+    const csv = rows.map(r => r.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'fitness_data.csv';
+    a.click();
+  }
+
+  function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+  }
+
+  updateSummary();
+  updateCharts();
+</script>
+</body>
+</html>
