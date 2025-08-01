@@ -31,21 +31,11 @@
     canvas {
       margin-top: 20px;
     }
-    .dark-mode {
-      background: #121212;
-      color: #fff;
-    }
-    .dark-mode input, .dark-mode button, .dark-mode textarea {
-      background: #333;
-      color: #fff;
-      border: 1px solid #555;
-    }
   </style>
 </head>
 <body>
 
 <h1>My Fitness Journey</h1>
-<button onclick="toggleDarkMode()">Toggle Dark Mode</button>
 <button onclick="exportToCSV()">Export to CSV</button>
 
 <div class="entry">
@@ -64,8 +54,8 @@
   <label>Calories Intake:</label>
   <input type="number" id="calIntake">
 
-  <label>Calories Burned:</label>
-  <input type="number" id="calBurned">
+  <label>Calories Burned (auto-calculated):</label>
+  <input type="number" id="calBurned" readonly>
 
   <label>Workout Notes:</label>
   <textarea id="notes" rows="3" placeholder="Describe your workout..."></textarea>
@@ -91,8 +81,34 @@
 <canvas id="calorieChart" height="100"></canvas>
 
 <script>
+  const userWeight = 70.4; // User weight in kg
   document.getElementById('date').valueAsDate = new Date();
   let fitnessData = JSON.parse(localStorage.getItem('fitnessDataByDate')) || {};
+
+  function calculateBurnedCalories(run, cycle, swim) {
+    const metRun = 9.8, metCycle = 7.5, metSwim = 8.0;
+    const timeRun = run / 10; // hours assuming 10 km/h
+    const timeCycle = cycle / 15; // hours assuming 15 km/h
+    const timeSwim = swim / 2000; // hours assuming 2 km/h
+
+    const burnRun = metRun * userWeight * timeRun;
+    const burnCycle = metCycle * userWeight * timeCycle;
+    const burnSwim = metSwim * userWeight * timeSwim;
+
+    return Math.round(burnRun + burnCycle + burnSwim);
+  }
+
+  function updateBurnedCalories() {
+    const run = parseFloat(document.getElementById('run').value) || 0;
+    const cycle = parseFloat(document.getElementById('cycle').value) || 0;
+    const swim = parseFloat(document.getElementById('swim').value) || 0;
+    const burned = calculateBurnedCalories(run, cycle, swim);
+    document.getElementById('calBurned').value = burned;
+  }
+
+  ['run','cycle','swim'].forEach(id => {
+    document.getElementById(id).addEventListener('input', updateBurnedCalories);
+  });
 
   function addEntry() {
     const date = document.getElementById('date').value;
@@ -196,10 +212,6 @@
     a.href = url;
     a.download = 'fitness_data.csv';
     a.click();
-  }
-
-  function toggleDarkMode() {
-    document.body.classList.toggle('dark-mode');
   }
 
   updateSummary();
